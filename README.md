@@ -8,3 +8,6 @@
 + 如果提示其它错误，请尝试使用管理员权限运行游戏。
 + 如果依旧不能运行，此补丁无能为力。
 
+### 依赖项
+
++ [BugTrap](https://github.com/bchavez/BugTrap)
