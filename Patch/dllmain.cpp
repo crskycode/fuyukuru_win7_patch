@@ -4179,6 +4179,24 @@ int WINAPI Hook_MultiByteToWideChar(
 #pragma endregion
 
 
+#define FPS_LIMIT
+#define SLEEP_TIME_MS 0x30
+
+#ifdef FPS_LIMIT
+
+// Original
+typedef DWORD (_fastcall *PfProcessWindowMessages)(DWORD, DWORD);
+PfProcessWindowMessages pfnProcessWindowMessages = NULL;
+// Hooked
+DWORD _fastcall Hook_ProcessWindowMessages(DWORD This, DWORD A1)
+{
+    Sleep(SLEEP_TIME_MS);
+    return pfnProcessWindowMessages(This, A1);
+}
+
+#endif
+
+
 //=============================================================================
 // Startup Code
 //=============================================================================
@@ -4186,12 +4204,24 @@ int WINAPI Hook_MultiByteToWideChar(
 
 void InstallPatches()
 {
+#ifdef FPS_LIMIT
+    DWORD Base = (DWORD)GetModuleHandle(NULL);
+
+    // MOV EBX, 0x20
+    // NOP
+    // NOP
+    // ...
+    BYTE patch[] = { 0xBB, SLEEP_TIME_MS, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+    PatchWrite((PVOID)(Base + 0x26F48), patch);
+#endif
 }
 
 
 void InstallHooks()
 {
     LogWrite(L"Patch Started\n");
+
+    DWORD Base = (DWORD)GetModuleHandle(NULL);
 
     HMODULE hD2D1 = LoadLibraryW(L"D2D1.DLL");
 
@@ -4211,6 +4241,11 @@ void InstallHooks()
     IATHook(NULL, "OLE32.DLL", "CoCreateInstance", -1, Hook_CoCreateInstance);
 
     IATHook(NULL, "KERNEL32.DLL", "MultiByteToWideChar", -1, Hook_MultiByteToWideChar);
+
+#ifdef FPS_LIMIT
+    pfnProcessWindowMessages = (PfProcessWindowMessages)(Base + 0x478B0);
+    InlineHook(pfnProcessWindowMessages, Hook_ProcessWindowMessages);
+#endif
 
     BT_InterceptSUEF(GetModuleHandle(NULL), TRUE);
     BT_SetAppName(_T("fuyukuru"));
